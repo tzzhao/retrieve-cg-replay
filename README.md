@@ -17,9 +17,25 @@ cgsession.cookie=b06bb52b-a8aa-486a-bee4-d94ce230a7b4
 Those information can be found by logging in on coding game website. 
 Open the browser debugger on Network tab. Open one of your replay. An "findByGameId" XHR request should be fired. Look into its request body. It should consist of an array of 2 numbers. The first one is the **gameId** and the second one is your **user.id**. 
 In the cookie section, you should see a cookie **cgSession**. Use its value for cgsession.cookie. (This needs to be updated everytime your session expires)
-## How to use
+## How to generate the stderr/sdout files
 Once all the setup is done, in the root folder of the project, you can run
 ```
 npm run generate {gameId}
 ```
 The files should be generated in target folder
+## How to read your file as an input instead of the standard input
+Include fstream library and at a block at the beginning of main to replace the standard input by your file 
+```
+#include <fstream>
+
+int main() {
+    bool isIde = true;
+    if (isIde) {
+        ifstream* inputFile = new ifstream("resources/init.txt");
+        cin.rdbuf(inputFile->rdbuf());
+    }
+    /*
+        rest of the code
+    */
+}
+```
