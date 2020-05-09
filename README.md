@@ -8,7 +8,7 @@ Then in the root folder of the project run the following
 npm install // install the npm dependencies
 npm run build // build the js
 ```
-## Configure
+## Configuration
 To be able to retrieve stderr, you will need to configure the env.properties file.
 ```
 user.id=1114834

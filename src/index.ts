@@ -1,6 +1,6 @@
 import { writeFileSync } from 'fs';
 import { createFileSync } from 'fs-extra';
-import {handlePostRequest} from './request.handler';
+import { handlePostRequest } from './request.handler';
 import PropertiesReader = require('properties-reader');
 
 export interface CGFrame {
@@ -33,13 +33,14 @@ export interface BattleItem {
   gameId: number;
 }
 
-export interface CGLastBattlesByAgentIdResponse extends Array<BattleItem>{
+export interface CGLastBattlesByAgentIdResponse extends Array<BattleItem> {
 }
 
 const properties: PropertiesReader.Reader = PropertiesReader('./env.properties');
 const userId: number = properties.get('user.id') as number;
 const cgSession: string = properties.get('cgsession.cookie') as string;
 const playerAgentId: number = properties.get('player.agent.id') as number;
+const secondesBetweenRequest: number = properties.get('seconds.between.requests') as number;
 // Without a cg session we can't access user specific data (stderr)
 const generateStderr: boolean = !!userId && !!cgSession;
 
@@ -59,18 +60,27 @@ function generateAllGamesDataForPlayerAgentId() {
   handlePostRequest('/services/gamesPlayersRanking/findLastBattlesByAgentId', `[${playerAgentId},null]`, processAllGamesDataForPlayerAgentId);
 }
 
-function generateGameData(gameId: number|string) {
+function generateGameData(gameId: number | string) {
   const gameDataPostBody: string = `[${gameId},${generateStderr ? userId : null}]`;
-  handlePostRequest('/services/gameResult/findByGameId', gameDataPostBody, processGameData, generateStderr ? cgSession: '');
+  handlePostRequest('/services/gameResult/findByGameId', gameDataPostBody, processGameData, generateStderr ? cgSession : '');
 }
 
 function processAllGamesDataForPlayerAgentId(responseString: string) {
   const response: CGLastBattlesByAgentIdResponse = JSON.parse(responseString);
+  const gameIdsToProcess: number[] = [];
   for (const game of response) {
     if (game.done) {
-      generateGameData(game.gameId);
+      gameIdsToProcess.push(game.gameId);
     }
   }
+  const interval = setInterval(() => {
+    const gameId: number | undefined = gameIdsToProcess.pop();
+    if (gameId == undefined) {
+      clearInterval(interval);
+    } else {
+      generateGameData(gameId);
+    }
+  }, secondesBetweenRequest * 1000);
 }
 
 function processGameData(responseString: string) {

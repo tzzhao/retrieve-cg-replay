@@ -1,12 +1,12 @@
 import * as http from "http";
-import {RequestOptions} from "https";
+import { RequestOptions } from "https";
 import * as https from "https";
 
 export function handlePostRequest(path: string, postbody: string, processResponse: (response: string) => void, cgSession: string = '') {
   const options: RequestOptions = {
     hostname: 'www.codingame.com',
     port: 443,
-    path: '/services/gameResult/findByGameId',
+    path,
     method: 'POST',
     headers: {
       "Host": " www.codingame.com",
