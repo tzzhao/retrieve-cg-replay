@@ -1,0 +1,21 @@
+{
+  "name": "getgamestderr",
+  "version": "1.0.0",
+  "description": "",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "generate": "node lib/index.js"
+  },
+  "author": "tzhao",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/fs-extra": "^8.1.0",
+    "@types/node": "^13.13.5",
+    "typescript": "^3.8.3"
+  },
+  "dependencies": {
+    "fs-extra": "^9.0.0"
+  }
+}
