@@ -1,8 +1,6 @@
 import { writeFileSync } from 'fs';
-import * as http from "http";
-import { RequestOptions } from "https";
-import * as https from 'https';
 import { createFileSync } from 'fs-extra';
+import {handlePostRequest} from './request.handler';
 import PropertiesReader = require('properties-reader');
 
 export interface CGFrame {
@@ -24,92 +22,97 @@ export interface CGAgent {
   index: number;
 }
 
-export interface CGResponse {
+export interface CGFindGameByIdResponse {
   agents: CGAgent[];
   frames: CGFrame[];
+  gameId: number;
+}
+
+export interface BattleItem {
+  done: boolean;
+  gameId: number;
+}
+
+export interface CGLastBattlesByAgentIdResponse extends Array<BattleItem>{
 }
 
 const properties: PropertiesReader.Reader = PropertiesReader('./env.properties');
 const userId: number = properties.get('user.id') as number;
 const cgSession: string = properties.get('cgsession.cookie') as string;
+const playerAgentId: number = properties.get('player.agent.id') as number;
 // Without a cg session we can't access user specific data (stderr)
 const generateStderr: boolean = !!userId && !!cgSession;
 
 console.log(process.argv);
 const gameId = process.argv[2];
-const gameIdentifier: string = `[${gameId},${generateStderr ? userId : null}]`;
 
-const options: RequestOptions = {
-  hostname: 'www.codingame.com',
-  port: 443,
-  path: '/services/gameResult/findByGameId',
-  method: 'POST',
-  headers: {
-    "Host": " www.codingame.com",
-    "Connection": " keep-alive",
-    "Accept": " application/json, text/plain, */*",
-    "Content-Type": [" application/json;charset=UTF-8"],
-    "Accept-Language": " en-US,en;q=0.9",
-  }
-};
-if (generateStderr) {
-  options.headers!.Cookie = `cgSession=${cgSession}`;
+if (gameId) {
+  generateGameData(gameId);
+} else if (playerAgentId) {
+  generateAllGamesDataForPlayerAgentId()
+} else {
+  console.error("Please either provide a gameId in input or set a player agent id in the env.properties");
 }
-const req: http.ClientRequest = https.request(options, (res: http.IncomingMessage) => {
-  console.log(`statusCode: ${res.statusCode}`);
-  let responseString: string = '';
-  res.setEncoding('UTF-8');
-  res.on('data', (chunk: string) => {
-    responseString += chunk;
-  });
-  res.on('end', () => {
-    const response: CGResponse = JSON.parse(responseString);
-    console.log(response);
-    if (response.agents && response.frames) {
-      response.agents.forEach((agent: CGAgent) => {
-        const agentUserId: number = agent.codingamer.userId;
-        const userIndex: number = agent.index;
 
-        if (generateStderr && agentUserId === userId) {
-          let stderr: string = '';
-          for (const frame of response.frames) {
-            if (frame.agentId === userIndex && !!frame.stderr) {
-              stderr += frame.stderr;
-              stderr += '\n';
-            }
-          }
-          const stderrFile: string = `./target/${gameId}-${agentUserId}-stderr.txt`;
-          createFileSync(stderrFile);
-          writeFileSync(stderrFile, stderr);
-        }
 
-        let stdout: string = '';
+function generateAllGamesDataForPlayerAgentId() {
+  handlePostRequest('/services/gamesPlayersRanking/findLastBattlesByAgentId', `[${playerAgentId},null]`, processAllGamesDataForPlayerAgentId);
+}
+
+function generateGameData(gameId: number|string) {
+  const gameDataPostBody: string = `[${gameId},${generateStderr ? userId : null}]`;
+  handlePostRequest('/services/gameResult/findByGameId', gameDataPostBody, processGameData, generateStderr ? cgSession: '');
+}
+
+function processAllGamesDataForPlayerAgentId(responseString: string) {
+  const response: CGLastBattlesByAgentIdResponse = JSON.parse(responseString);
+  for (const game of response) {
+    if (game.done) {
+      generateGameData(game.gameId);
+    }
+  }
+}
+
+function processGameData(responseString: string) {
+  const response: CGFindGameByIdResponse = JSON.parse(responseString);
+  const gameId: number = response.gameId;
+  console.log(response);
+  if (response.agents && response.frames) {
+    response.agents.forEach((agent: CGAgent) => {
+      const agentUserId: number = agent.codingamer.userId;
+      const userIndex: number = agent.index;
+
+      if (generateStderr && agentUserId === userId) {
+        let stderr: string = '';
         for (const frame of response.frames) {
-          if (frame.agentId === userIndex && !!frame.stdout) {
-            stdout += frame.stdout;
+          if (frame.agentId === userIndex && !!frame.stderr) {
+            stderr += frame.stderr;
+            stderr += '\n';
           }
         }
-        const stdoutFile: string = `./target/${gameId}-${agentUserId}-stdout.txt`;
-        createFileSync(stdoutFile);
-        writeFileSync(stdoutFile, stdout);
-      });
+        const stderrFile: string = `./target/${gameId}-${agentUserId}-stderr.txt`;
+        createFileSync(stderrFile);
+        writeFileSync(stderrFile, stderr);
+      }
+
       let stdout: string = '';
       for (const frame of response.frames) {
-        if (!!frame.stdout) {
+        if (frame.agentId === userIndex && !!frame.stdout) {
           stdout += frame.stdout;
         }
       }
-      const stdoutFile: string = `./target/${gameId}-stdout.txt`;
+      const stdoutFile: string = `./target/${gameId}-${agentUserId}-stdout.txt`;
       createFileSync(stdoutFile);
       writeFileSync(stdoutFile, stdout);
+    });
+    let stdout: string = '';
+    for (const frame of response.frames) {
+      if (!!frame.stdout) {
+        stdout += frame.stdout;
+      }
     }
-  });
-});
-
-req.on('error', (error) => {
-  console.error(error);
-});
-
-console.log(gameIdentifier);
-req.write(gameIdentifier);
-req.end();
+    const stdoutFile: string = `./target/${gameId}-stdout.txt`;
+    createFileSync(stdoutFile);
+    writeFileSync(stdoutFile, stdout);
+  }
+}
