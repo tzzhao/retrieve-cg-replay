@@ -1,7 +1,7 @@
-import {writeFileSync} from 'fs';
-import {createFileSync, pathExistsSync} from 'fs-extra';
-import {IncomingHttpHeaders} from 'http';
-import {loginAction} from './cg.api';
+import { writeFileSync } from 'fs';
+import { createFileSync, pathExistsSync } from 'fs-extra';
+import { IncomingHttpHeaders } from 'http';
+import { loginAction } from './cg.api';
 import {
   CGAgent,
   CGFindGameByIdResponse,
@@ -9,7 +9,7 @@ import {
   CGLoginResponse,
   HttpResponseObject,
 } from './interfaces';
-import {handlePostRequest} from './http-request.handler';
+import { handlePostRequest } from './http-request.handler';
 import PropertiesReader = require('properties-reader');
 
 const properties: PropertiesReader.Reader = PropertiesReader('./env.properties');
@@ -49,32 +49,32 @@ function generateData() {
 
 async function processLoginAction() {
   await loginAction(login, pwd).then((response: HttpResponseObject) => {
-        const responseString = response.response;
-        const res: CGLoginResponse = JSON.parse(responseString);
+    const responseString = response.response;
+    const res: CGLoginResponse = JSON.parse(responseString);
 
-        const headers: IncomingHttpHeaders = response.headers;
-        const setCookies: string[] | undefined = headers['set-cookie'];
-        const cookieDict: {[key:string]: string} = {};
-        if (setCookies) {
-          for (const setCookie of setCookies) {
-            const cookieStringArray: string[] = setCookie.split(';');
-            const cookieKeyValuePair: string[] = cookieStringArray[0].split('=');
-            cookieDict[cookieKeyValuePair[0]] = cookieKeyValuePair[1];
-          }
-        }
+    const headers: IncomingHttpHeaders = response.headers;
+    const setCookies: string[] | undefined = headers['set-cookie'];
+    const cookieDict: { [key: string]: string } = {};
+    if (setCookies) {
+      for (const setCookie of setCookies) {
+        const cookieStringArray: string[] = setCookie.split(';');
+        const cookieKeyValuePair: string[] = cookieStringArray[0].split('=');
+        cookieDict[cookieKeyValuePair[0]] = cookieKeyValuePair[1];
+      }
+    }
 
-        // Setup session cookie and user id
-        if (res.userId) {
-          userId = res.userId;
-        }
-        if (cookieDict.cgSession) {
-          cgSession = cookieDict.cgSession;
-        }
-      },
-      (error) => {
-        console.error(error);
-        process.exit();
-      });
+    // Setup session cookie and user id
+    if (res.userId) {
+      userId = res.userId;
+    }
+    if (cookieDict.cgSession) {
+      cgSession = cookieDict.cgSession;
+    }
+  },
+    (error) => {
+      console.error(error);
+      process.exit();
+    });
 }
 
 function generateAllGamesDataForPlayerAgentId(playerAgentId: number) {
@@ -95,7 +95,7 @@ async function processAllGamesDataForPlayerAgentId(responseString: string) {
   for (const game of response) {
     if (game.done) {
       if (!pathExistsSync(`./target/${game.gameId}-stdout.txt`)
-          && (!useSessionCookie || !pathExistsSync(`./target/${gameId}-${userId}-stderr.txt`))) {
+        && (!useSessionCookie || !pathExistsSync(`./target/${gameId}-${userId}-stderr.txt`))) {
         await generateGameData(game.gameId);
       }
     }
