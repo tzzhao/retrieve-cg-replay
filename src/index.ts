@@ -1,7 +1,7 @@
 import { writeFileSync } from 'fs';
 import { createFileSync, pathExistsSync } from 'fs-extra';
 import { IncomingHttpHeaders } from 'http';
-import { loginAction } from './cg.api';
+import {findByGameIdAction, findLastBattlesByAgentIdAction, loginAction} from './cg.api';
 import {
   CGAgent,
   CGFindGameByIdResponse,
@@ -28,26 +28,32 @@ const gameId = process.argv[2];
 if (login && pwd) {
   // First login to set the cgSession cookie (needed for stderr)
   processLoginAction().then(() => {
-    generateData();
+    generateDataDependingOnAvailableInformation();
   });
 } else {
-  generateData();
+  generateDataDependingOnAvailableInformation();
 }
 
-function generateData() {
-  // Set global variables to know whether a session cookie should be used
+export function generateDataDependingOnAvailableInformation() {
+  // Set global variables to know whether a session cookie can be used
   useSessionCookie = !!userId && !!cgSession;
   generateStderrData = useSessionCookie;
+
   if (gameId) {
+    // If gameId is provided, only generate data for the specific game
     generateGameData(gameId).then();
   } else if (playerAgentId) {
+    // Else if player agent is provided, generate data for all games associated to this playerAgentId
     generateAllGamesDataForPlayerAgentId(playerAgentId);
   } else {
     console.error('Please either provide a gameId in input or set a player agent id in the env.properties');
   }
 }
 
-async function processLoginAction() {
+/********************************************************************************************************************
+ * Login and set cgSession (needed to generate stderr)
+ ********************************************************************************************************************/
+export async function processLoginAction() {
   await loginAction(login, pwd).then((response: HttpResponseObject) => {
     const responseString = response.response;
     const res: CGLoginResponse = JSON.parse(responseString);
@@ -77,20 +83,16 @@ async function processLoginAction() {
     });
 }
 
-function generateAllGamesDataForPlayerAgentId(playerAgentId: number) {
-  handlePostRequest('/services/gamesPlayersRanking/findLastBattlesByAgentId', `[${playerAgentId},null]`).then(async (response: HttpResponseObject) => {
+/********************************************************************************************************************
+ * Generate stderr/sdout data for all games of a given player agent id
+ ********************************************************************************************************************/
+export function generateAllGamesDataForPlayerAgentId(playerAgentId: number) {
+  findLastBattlesByAgentIdAction(playerAgentId).then(async (response: HttpResponseObject) => {
     await processAllGamesDataForPlayerAgentId(response.response);
   });
 }
 
-async function generateGameData(gameId: number | string): Promise<any> {
-  const gameDataPostBody: string = `[${gameId},${useSessionCookie ? userId : null}]`;
-  return handlePostRequest('/services/gameResult/findByGameId', gameDataPostBody, useSessionCookie ? cgSession : '').then((response: HttpResponseObject) => {
-    processGameData(response.response);
-  });
-}
-
-async function processAllGamesDataForPlayerAgentId(responseString: string) {
+export async function processAllGamesDataForPlayerAgentId(responseString: string) {
   const response: CGLastBattlesByAgentIdResponse = JSON.parse(responseString);
   for (const game of response) {
     if (game.done) {
@@ -102,7 +104,16 @@ async function processAllGamesDataForPlayerAgentId(responseString: string) {
   }
 }
 
-function processGameData(responseString: string) {
+/********************************************************************************************************************
+ * Generate stderr/sdout data for a specific game
+********************************************************************************************************************/
+export async function generateGameData(gameId: number | string): Promise<any> {
+  return findByGameIdAction(gameId, userId, cgSession).then((response: HttpResponseObject) => {
+    processGameData(response.response);
+  });
+}
+
+export function processGameData(responseString: string) {
   const response: CGFindGameByIdResponse = JSON.parse(responseString);
   const gameId: number = response.gameId;
   console.log(response);

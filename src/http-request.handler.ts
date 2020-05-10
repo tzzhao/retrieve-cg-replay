@@ -30,7 +30,11 @@ export function handlePostRequest(path: string, postbody: string, cgSession: str
         response += chunk;
       });
       res.on('end', () => {
-        resolve({response, status: res.statusCode, headers: res.headers});
+        if (!res.statusCode || res.statusCode < 200 || res.statusCode > 400) {
+          reject('Wrong status code: ' + res.statusCode + '\n' + response);
+        } else {
+          resolve({response, status: res.statusCode, headers: res.headers});
+        }
       });
     });
 

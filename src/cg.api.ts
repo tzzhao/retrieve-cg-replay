@@ -9,7 +9,7 @@ export function findLastBattlesByAgentIdAction(playerAgentId: number): Promise<H
   return handlePostRequest('/services/gamesPlayersRanking/findLastBattlesByAgentId', `[${playerAgentId},null]`);
 }
 
-export function generateGameData(gameId: number | string, userId?: number, cgSession?: string): Promise<HttpResponseObject> {
+export function findByGameIdAction(gameId: number | string, userId?: number, cgSession?: string): Promise<HttpResponseObject> {
   const gameDataPostBody: string = `[${gameId},${cgSession ? userId : null}]`;
   return handlePostRequest('/services/gameResult/findByGameId', gameDataPostBody, cgSession);
 }
