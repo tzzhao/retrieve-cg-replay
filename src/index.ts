@@ -1,86 +1,105 @@
-import { writeFileSync } from 'fs';
-import { createFileSync } from 'fs-extra';
-import { handlePostRequest } from './request.handler';
+import {writeFileSync} from 'fs';
+import {createFileSync, pathExistsSync} from 'fs-extra';
+import {IncomingHttpHeaders} from 'http';
+import {loginAction} from './cg.api';
+import {
+  CGAgent,
+  CGFindGameByIdResponse,
+  CGLastBattlesByAgentIdResponse,
+  CGLoginResponse,
+  HttpResponseObject,
+} from './interfaces';
+import {handlePostRequest} from './http-request.handler';
 import PropertiesReader = require('properties-reader');
 
-export interface CGFrame {
-  agentId: number;
-  gameInformation: string;
-  keyframe: boolean;
-  stderr?: string;
-  stdout?: string;
-}
-
-export interface CGCodinGamer {
-  userId: number;
-  pseudo: string;
-}
-
-export interface CGAgent {
-  agentId: number;
-  codingamer: CGCodinGamer;
-  index: number;
-}
-
-export interface CGFindGameByIdResponse {
-  agents: CGAgent[];
-  frames: CGFrame[];
-  gameId: number;
-}
-
-export interface BattleItem {
-  done: boolean;
-  gameId: number;
-}
-
-export interface CGLastBattlesByAgentIdResponse extends Array<BattleItem> {
-}
-
 const properties: PropertiesReader.Reader = PropertiesReader('./env.properties');
-const userId: number = properties.get('user.id') as number;
-const cgSession: string = properties.get('cgsession.cookie') as string;
 const playerAgentId: number = properties.get('player.agent.id') as number;
-const secondesBetweenRequest: number = properties.get('seconds.between.requests') as number;
-// Without a cg session we can't access user specific data (stderr)
-const generateStderr: boolean = !!userId && !!cgSession;
+const login: string = properties.get('user.login') as string;
+const pwd: string = properties.get('user.pwd') as string;
+
+let userId: number | undefined;
+let cgSession: string | undefined;
+let useSessionCookie: boolean = false;
+let generateStderrData: boolean = false;
 
 console.log(process.argv);
 const gameId = process.argv[2];
 
-if (gameId) {
-  generateGameData(gameId);
-} else if (playerAgentId) {
-  generateAllGamesDataForPlayerAgentId()
+if (login && pwd) {
+  // First login to set the cgSession cookie (needed for stderr)
+  processLoginAction().then(() => {
+    generateData();
+  });
 } else {
-  console.error("Please either provide a gameId in input or set a player agent id in the env.properties");
+  generateData();
 }
 
-
-function generateAllGamesDataForPlayerAgentId() {
-  handlePostRequest('/services/gamesPlayersRanking/findLastBattlesByAgentId', `[${playerAgentId},null]`, processAllGamesDataForPlayerAgentId);
+function generateData() {
+  // Set global variables to know whether a session cookie should be used
+  useSessionCookie = !!userId && !!cgSession;
+  generateStderrData = useSessionCookie;
+  if (gameId) {
+    generateGameData(gameId).then();
+  } else if (playerAgentId) {
+    generateAllGamesDataForPlayerAgentId(playerAgentId);
+  } else {
+    console.error('Please either provide a gameId in input or set a player agent id in the env.properties');
+  }
 }
 
-function generateGameData(gameId: number | string) {
-  const gameDataPostBody: string = `[${gameId},${generateStderr ? userId : null}]`;
-  handlePostRequest('/services/gameResult/findByGameId', gameDataPostBody, processGameData, generateStderr ? cgSession : '');
+async function processLoginAction() {
+  await loginAction(login, pwd).then((response: HttpResponseObject) => {
+        const responseString = response.response;
+        const res: CGLoginResponse = JSON.parse(responseString);
+
+        const headers: IncomingHttpHeaders = response.headers;
+        const setCookies: string[] | undefined = headers['set-cookie'];
+        const cookieDict: {[key:string]: string} = {};
+        if (setCookies) {
+          for (const setCookie of setCookies) {
+            const cookieStringArray: string[] = setCookie.split(';');
+            const cookieKeyValuePair: string[] = cookieStringArray[0].split('=');
+            cookieDict[cookieKeyValuePair[0]] = cookieKeyValuePair[1];
+          }
+        }
+
+        // Setup session cookie and user id
+        if (res.userId) {
+          userId = res.userId;
+        }
+        if (cookieDict.cgSession) {
+          cgSession = cookieDict.cgSession;
+        }
+      },
+      (error) => {
+        console.error(error);
+        process.exit();
+      });
 }
 
-function processAllGamesDataForPlayerAgentId(responseString: string) {
+function generateAllGamesDataForPlayerAgentId(playerAgentId: number) {
+  handlePostRequest('/services/gamesPlayersRanking/findLastBattlesByAgentId', `[${playerAgentId},null]`).then(async (response: HttpResponseObject) => {
+    await processAllGamesDataForPlayerAgentId(response.response);
+  });
+}
+
+async function generateGameData(gameId: number | string): Promise<any> {
+  const gameDataPostBody: string = `[${gameId},${useSessionCookie ? userId : null}]`;
+  return handlePostRequest('/services/gameResult/findByGameId', gameDataPostBody, useSessionCookie ? cgSession : '').then((response: HttpResponseObject) => {
+    processGameData(response.response);
+  });
+}
+
+async function processAllGamesDataForPlayerAgentId(responseString: string) {
   const response: CGLastBattlesByAgentIdResponse = JSON.parse(responseString);
-  const gameIdsToProcess: number[] = [];
   for (const game of response) {
     if (game.done) {
-      gameIdsToProcess.push(game.gameId);
+      if (!pathExistsSync(`./target/${game.gameId}-stdout.txt`)
+          && (!useSessionCookie || !pathExistsSync(`./target/${gameId}-${userId}-stderr.txt`))) {
+        await generateGameData(game.gameId);
+      }
     }
   }
-  const interval = setInterval(() => {
-    const gameId: number | undefined = gameIdsToProcess.pop();
-    if (gameId == undefined) {
-      clearInterval(interval);
-    } else {
-      generateGameData(gameId);
-    }
-  }, secondesBetweenRequest * 1000);
 }
 
 function processGameData(responseString: string) {
@@ -92,7 +111,7 @@ function processGameData(responseString: string) {
       const agentUserId: number = agent.codingamer.userId;
       const userIndex: number = agent.index;
 
-      if (generateStderr && agentUserId === userId) {
+      if (useSessionCookie && agentUserId === userId) {
         let stderr: string = '';
         for (const frame of response.frames) {
           if (frame.agentId === userIndex && !!frame.stderr) {
