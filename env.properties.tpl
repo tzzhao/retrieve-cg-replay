@@ -4,3 +4,6 @@ player.agent.id=2887744
 user.login=
 # cg user pwd (needed to retrieve stderr, can be left blank otherwise)
 user.pwd=
+# custom security PEM certificates. Go on firefox on your coding game. View the security certificate
+# and get the PEM (chain). Multiple certificates can be added separated with a comma
+ca.files=

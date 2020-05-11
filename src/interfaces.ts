@@ -13,9 +13,14 @@ export interface CGCodinGamer {
   pseudo: string;
 }
 
+export interface CGArenaBoss {
+  nickname: string;
+}
+
 export interface CGAgent {
   agentId: number;
-  codingamer: CGCodinGamer;
+  codingamer?: CGCodinGamer;
+  arenaboss?: CGArenaBoss;
   index: number;
 }
 

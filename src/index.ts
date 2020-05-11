@@ -9,13 +9,13 @@ import {
   CGLoginResponse,
   HttpResponseObject,
 } from './interfaces';
-import { handlePostRequest } from './http-request.handler';
 import PropertiesReader = require('properties-reader');
 
 const properties: PropertiesReader.Reader = PropertiesReader('./env.properties');
 const playerAgentId: number = properties.get('player.agent.id') as number;
 const login: string = properties.get('user.login') as string;
 const pwd: string = properties.get('user.pwd') as string;
+const cafiles: string = properties.get('ca.files') as string;
 
 let userId: number | undefined;
 let cgSession: string | undefined;
@@ -41,12 +41,17 @@ export function generateDataDependingOnAvailableInformation() {
 
   if (gameId) {
     // If gameId is provided, only generate data for the specific game
-    generateGameData(gameId).then();
+    generateGameData(gameId).then(() => {
+      process.exit();
+    });
   } else if (playerAgentId) {
     // Else if player agent is provided, generate data for all games associated to this playerAgentId
-    generateAllGamesDataForPlayerAgentId(playerAgentId);
+    generateAllGamesDataForPlayerAgentId(playerAgentId).then(() => {
+      process.exit();
+    });
   } else {
     console.error('Please either provide a gameId in input or set a player agent id in the env.properties');
+    process.exit();
   }
 }
 
@@ -54,7 +59,7 @@ export function generateDataDependingOnAvailableInformation() {
  * Login and set cgSession (needed to generate stderr)
  ********************************************************************************************************************/
 export async function processLoginAction() {
-  await loginAction(login, pwd).then((response: HttpResponseObject) => {
+  await loginAction(login, pwd, cafiles).then((response: HttpResponseObject) => {
     const responseString = response.response;
     const res: CGLoginResponse = JSON.parse(responseString);
 
@@ -86,8 +91,8 @@ export async function processLoginAction() {
 /********************************************************************************************************************
  * Generate stderr/sdout data for all games of a given player agent id
  ********************************************************************************************************************/
-export function generateAllGamesDataForPlayerAgentId(playerAgentId: number) {
-  findLastBattlesByAgentIdAction(playerAgentId).then(async (response: HttpResponseObject) => {
+export function generateAllGamesDataForPlayerAgentId(playerAgentId: number): Promise<any> {
+  return findLastBattlesByAgentIdAction(playerAgentId, cafiles).then(async (response: HttpResponseObject) => {
     await processAllGamesDataForPlayerAgentId(response.response);
   });
 }
@@ -108,7 +113,7 @@ export async function processAllGamesDataForPlayerAgentId(responseString: string
  * Generate stderr/sdout data for a specific game
 ********************************************************************************************************************/
 export async function generateGameData(gameId: number | string): Promise<any> {
-  return findByGameIdAction(gameId, userId, cgSession).then((response: HttpResponseObject) => {
+  return findByGameIdAction(gameId, userId, cgSession,cafiles).then((response: HttpResponseObject) => {
     processGameData(response.response);
   });
 }
@@ -119,7 +124,7 @@ export function processGameData(responseString: string) {
   console.log(response);
   if (response.agents && response.frames) {
     response.agents.forEach((agent: CGAgent) => {
-      const agentUserId: number = agent.codingamer.userId;
+      const agentUserId: number | string = agent.codingamer ? agent.codingamer.userId : agent.arenaboss!.nickname.replace(' ', '');
       const userIndex: number = agent.index;
 
       if (useSessionCookie && agentUserId === userId) {

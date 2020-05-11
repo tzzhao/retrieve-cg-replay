@@ -17,10 +17,22 @@ player.agent.id=2874821
 user.login=k4ng0u
 # cg user pwd (needed to retrieve stderr, can be left blank otherwise)
 user.pwd=passw0rd
+# custom security PEM certificates. Go on firefox on your coding game. View the security certificate
+# and get the PEM (chain). Multiple certificates can be added separated with a comma
+ca.files=./conf/codingame-com-chain.pem
 ``` 
 **player.agent.id** can be found by going on a challenge ranking page. Open the browser debugger on Network tab. 
 Click on View your last battles. A findLastBattlesByAgentId XHR request is fired. Its payload is an array of 2 
-numbers. The first one is your agent id. NOTE: the **player.agent.id** changes after each new submit.
+numbers. The first one is your agent id. NOTE: the **player.agent.id** changes after each new submit.  
+**ca.files** is needed sometimes when you get the error UNABLE_TO_GET_ISSUER_CERT_LOCALLY (typically due to firewall 
+configuration) In this case you can get it from firefox: 
+* Open www.codingame.com on firefox.
+* Click on the lock icon on the left side of the url bar.
+* Click on Secure information. View more information. Display certificates.
+* Look for PEM (chain) Download it and put it in a folder (for instance a conf folder in the root of the repo). 
+* Then add the path to the certificate in the env.properties.
+
+Multiple certificates can be added by separating their path with a comma. 
 ## How to generate the stderr/sdout files
 ### Generate data for a specific game
 Look for the **gameId** of your replay. The easiest way is to click on the share 

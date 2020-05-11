@@ -1,9 +1,10 @@
+import {readFileSync} from 'fs';
 import * as http from "http";
 import { RequestOptions } from "https";
 import * as https from "https";
 import {HttpResponseObject} from './interfaces';
 
-export function handlePostRequest(path: string, postbody: string, cgSession: string = ''): Promise<HttpResponseObject> {
+export function handlePostRequest(path: string, postbody: string, cgSession: string = '', cafiles: string = ''): Promise<HttpResponseObject> {
   return new Promise<HttpResponseObject>((resolve, reject) => {
     const options: RequestOptions = {
       hostname: 'www.codingame.com',
@@ -11,7 +12,7 @@ export function handlePostRequest(path: string, postbody: string, cgSession: str
       path,
       method: 'POST',
       headers: {
-        "Host": " www.codingame.com",
+        "Host": "www.codingame.com",
         "Connection": " keep-alive",
         "Accept": " application/json, text/plain, */*",
         "Content-Type": [" application/json;charset=UTF-8"],
@@ -20,6 +21,12 @@ export function handlePostRequest(path: string, postbody: string, cgSession: str
     };
     if (cgSession) {
       options.headers!.Cookie = `cgSession=${cgSession}`;
+    }
+    if (cafiles) {
+      const caFilesArray: string[] = cafiles.split(',');
+      if (caFilesArray.length > 0) {
+        options.ca = caFilesArray.map((caFilePath: string) => {return readFileSync(caFilePath)});
+      }
     }
 
     const req: http.ClientRequest = https.request(options, (res: http.IncomingMessage) => {
