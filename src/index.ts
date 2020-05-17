@@ -16,6 +16,10 @@ const playerAgentId: number = properties.get('player.agent.id') as number;
 const login: string = properties.get('user.login') as string;
 const pwd: string = properties.get('user.pwd') as string;
 const cafiles: string = properties.get('ca.files') as string;
+let outputPath: string = properties.get('output.path') as string;
+if (!outputPath) {
+  outputPath = './target';
+}
 
 let userId: number | undefined;
 let cgSession: string | undefined;
@@ -101,8 +105,8 @@ export async function processAllGamesDataForPlayerAgentId(responseString: string
   const response: CGLastBattlesByAgentIdResponse = JSON.parse(responseString);
   for (const game of response) {
     if (game.done) {
-      if (!pathExistsSync(`./target/${game.gameId}-stdout.txt`)
-        && (!useSessionCookie || !pathExistsSync(`./target/${gameId}-${userId}-stderr.txt`))) {
+      if (!pathExistsSync(`${outputPath}${game.gameId}-stdout.txt`)
+        && (!useSessionCookie || !pathExistsSync(`${outputPath}${gameId}-${userId}-stderr.txt`))) {
         await generateGameData(game.gameId);
       }
     }
@@ -135,7 +139,7 @@ export function processGameData(responseString: string) {
             stderr += '\n';
           }
         }
-        const stderrFile: string = `./target/${gameId}-${agentUserId}-stderr.txt`;
+        const stderrFile: string = `${outputPath}${gameId}-${agentUserId}-stderr.txt`;
         createFileSync(stderrFile);
         writeFileSync(stderrFile, stderr);
       }
@@ -146,7 +150,7 @@ export function processGameData(responseString: string) {
           stdout += frame.stdout;
         }
       }
-      const stdoutFile: string = `./target/${gameId}-${agentUserId}-stdout.txt`;
+      const stdoutFile: string = `${outputPath}${gameId}-${agentUserId}-stdout.txt`;
       createFileSync(stdoutFile);
       writeFileSync(stdoutFile, stdout);
     });
@@ -156,7 +160,7 @@ export function processGameData(responseString: string) {
         stdout += frame.stdout;
       }
     }
-    const stdoutFile: string = `./target/${gameId}-stdout.txt`;
+    const stdoutFile: string = `${outputPath}${gameId}-stdout.txt`;
     createFileSync(stdoutFile);
     writeFileSync(stdoutFile, stdout);
   }
