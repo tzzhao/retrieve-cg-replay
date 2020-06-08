@@ -45,7 +45,7 @@ export function generateDataDependingOnAvailableInformation() {
 
   if (gameId) {
     // If gameId is provided, only generate data for the specific game
-    generateGameData(gameId).then(() => {
+    generateGameData(gameId, true).then(() => {
       process.exit();
     });
   } else if (playerAgentId) {
@@ -116,13 +116,13 @@ export async function processAllGamesDataForPlayerAgentId(responseString: string
 /********************************************************************************************************************
  * Generate stderr/sdout data for a specific game
 ********************************************************************************************************************/
-export async function generateGameData(gameId: number | string): Promise<any> {
+export async function generateGameData(gameId: number | string, createDefaultFile: boolean = false): Promise<any> {
   return findByGameIdAction(gameId, userId, cgSession,cafiles).then((response: HttpResponseObject) => {
-    processGameData(response.response);
+    processGameData(response.response, createDefaultFile);
   });
 }
 
-export function processGameData(responseString: string) {
+export function processGameData(responseString: string, createDefaultFile: boolean) {
   const response: CGFindGameByIdResponse = JSON.parse(responseString);
   const gameId: number = response.gameId;
   console.log(response);
@@ -142,6 +142,11 @@ export function processGameData(responseString: string) {
         const stderrFile: string = `${outputPath}${gameId}-${agentUserId}-stderr.txt`;
         createFileSync(stderrFile);
         writeFileSync(stderrFile, stderr);
+        if (createDefaultFile) {
+          const defaultStderrFile: string = `${outputPath}default-stderr.txt`;
+          createFileSync(defaultStderrFile);
+          writeFileSync(defaultStderrFile, stderr);
+        }
       }
 
       let stdout: string = '';
@@ -151,6 +156,11 @@ export function processGameData(responseString: string) {
         }
       }
       const stdoutFile: string = `${outputPath}${gameId}-${agentUserId}-stdout.txt`;
+      if (createDefaultFile) {
+        const defaultStdoutFile: string = `${outputPath}default-${agentUserId}-stdout.txt`;
+        createFileSync(defaultStdoutFile);
+        writeFileSync(defaultStdoutFile, stdout);
+      }
       createFileSync(stdoutFile);
       writeFileSync(stdoutFile, stdout);
     });
@@ -161,6 +171,11 @@ export function processGameData(responseString: string) {
       }
     }
     const stdoutFile: string = `${outputPath}${gameId}-stdout.txt`;
+    if (createDefaultFile) {
+      const defaultStdoutFile: string = `${outputPath}default-stdout.txt`;
+      createFileSync(defaultStdoutFile);
+      writeFileSync(defaultStdoutFile, stdoutFile);
+    }
     createFileSync(stdoutFile);
     writeFileSync(stdoutFile, stdout);
   }
