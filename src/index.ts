@@ -128,13 +128,15 @@ export function processGameData(responseString: string, createDefaultFile: boole
   console.log(response);
   if (response.agents && response.frames) {
     response.agents.forEach((agent: CGAgent) => {
-      const agentUserId: number | string = agent.codingamer ? agent.codingamer.userId : agent.arenaboss!.nickname.replace(' ', '');
+      const agentUserId: number | string = agent.codingamer ?
+          agent.codingamer.userId :
+          agent.arenaboss ? agent.arenaboss!.nickname.replace(' ', '') : 'defaultAi';
       const userIndex: number = agent.index;
 
       if (useSessionCookie && agentUserId === userId) {
         let stderr: string = '';
         for (const frame of response.frames) {
-          if (frame.agentId === userIndex && !!frame.stderr) {
+          if ((typeof frame.agentId === 'undefined' || frame.agentId === userIndex) && !!frame.stderr) {
             stderr += frame.stderr;
             stderr += '\n';
           }
