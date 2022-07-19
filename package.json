@@ -18,6 +18,6 @@
   },
   "dependencies": {
     "fs-extra": "^9.0.0",
-    "properties-reader": "^2.0.0"
+    "properties-reader": "^2.2.0"
   }
 }
